@@ -172,3 +172,7 @@ gun_data_final <- mortality_data %>%
   left_join(law_strength_final, by = c("STATE_NAME" = "state", "YEAR" = "year")) %>%
   janitor::clean_names()
 
+
+# Save the cleaned dataset
+
+write_csv(gun_data_final, "firmarm_data_cleaned.csv")
