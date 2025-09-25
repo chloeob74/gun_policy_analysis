@@ -7,6 +7,6 @@
 
 2. data-table.csv
    - CDC Firearm Mortality Data
-   - https://www.cdc.gov/nchs/state-stats/deaths/firearms.html?utm_source=chatgpt.com
+   - https://www.cdc.gov/nchs/state-stats/deaths/firearms.html
 
 
