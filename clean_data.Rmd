@@ -18,6 +18,10 @@ library(skimr)
 library(corrplot)
 library(VIM)
 library(plotly)
+library(janitor)
+library(lubridate)
+library(recipes)
+library(rsample)
 ```
 
 ```{r}
@@ -269,7 +273,76 @@ gun_data_final <- mortality_data %>%
   janitor::clean_names()
 ```
 
+```{r}
+gun_data_final2 <- gun_data_final %>%
+  select(-url) %>%
+  mutate(
+    state = as.factor(state),
+    year = as.integer(year)
+  )
+```
 
+```{r}
+# create a high_risk variable
+# high_risk by year percentile (75th)
+# if rate in top 25% of rate data, classify as high risk (1), low risk otherwise (0)
+gun_data_final3 <- gun_data_final2 %>%
+  group_by(year) %>%
+  mutate(
+    rate_p75 = quantile(rate, 0.75, na.rm = TRUE),
+    high_risk = if_else(rate >= rate_p75, 1L, 0L)
+  ) %>%
+  ungroup() %>%
+  select(-rate_p75)
+```
+
+```{r}
+# year-over-year changes by state 
+# changes in rate and change in law strength by time 
+
+gun_data_final4 <- gun_data_final3 %>%
+  arrange(state, year) %>%
+  group_by(state) %>%
+  mutate(
+    rate_change = rate - lag(rate),
+    law_strength_change = law_strength_score - lag(law_strength_score)
+  ) %>%
+  ungroup()
+```
+
+```{r}
+# Ratio of restrictive and permissive to total changes
+gun_data_final4 <- gun_data_final4 %>%
+  mutate(
+    restrictive_ratio = round(restrictive_laws / total_law_changes, digits = 2),
+    permissive_ratio = round(permissive_laws / total_law_changes, digits = 2)
+  )
+```
+
+```{r}
+# set of specific law predictors for regression/classification
+law_predictors <- c(
+  "strength_background_checks",
+  "strength_waiting_period",
+  "strength_child_access_laws",
+  "strength_open_carry",
+  "strength_castle_doctrine",
+  "strength_firearms_in_college_university",
+  "strength_permit_to_purchase"
+)
+
+# Aggregate indicators
+law_aggregate <- c(
+  "law_strength_score", "restrictive_laws", "permissive_laws",
+  "total_law_changes", "restrictive_ratio", "permissive_ratio",
+  "law_strength_change", "rate_change"
+)
+
+# High-dimensional set for PCA/Clustering
+hi_dim_data <- names(temporal_changes_data) %>%
+  keep(~ str_starts(., "strength_") | str_starts(., "class_count_") |
+          str_starts(., "class_restrictive_") | str_starts(., "class_permissive_"))
+```
 
 
 

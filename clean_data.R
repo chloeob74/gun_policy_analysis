@@ -173,6 +173,44 @@ gun_data_final <- mortality_data %>%
   janitor::clean_names()
 
 
+gun_data_final2 <- gun_data_final %>%
+  select(-url) %>%
+  mutate(
+    state = as.factor(state),
+    year = as.integer(year)
+  )
+
+# create a high_risk variable
+# high_risk by year percentile (75th)
+# if rate in top 25% of rate data, classify as high risk (1), low risk otherwise (0)
+gun_data_final3 <- gun_data_final2 %>%
+  group_by(year) %>%
+  mutate(
+    rate_p75 = quantile(rate, 0.75, na.rm = TRUE),
+    high_risk = if_else(rate >= rate_p75, 1L, 0L)
+  ) %>%
+  ungroup() %>%
+  select(-rate_p75)
+
+# year-over-year changes by state 
+# changes in rate and change in law strength by time 
+
+gun_data_final4 <- gun_data_final3 %>%
+  arrange(state, year) %>%
+  group_by(state) %>%
+  mutate(
+    rate_change = rate - lag(rate),
+    law_strength_change = law_strength_score - lag(law_strength_score)
+  ) %>%
+  ungroup()
+
+# Ratio of restrictive and permissive to total changes
+gun_data_final4 <- gun_data_final4 %>%
+  mutate(
+    restrictive_ratio = round(restrictive_laws / total_law_changes, digits = 2),
+    permissive_ratio = round(permissive_laws / total_law_changes, digits = 2)
+  )
+
 # Save the cleaned dataset
 
-write_csv(gun_data_final, "firmarm_data_cleaned.csv")
+write_csv(gun_data_final4, "firmarm_data_cleaned.csv")
