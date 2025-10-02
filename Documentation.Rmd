@@ -1,0 +1,43 @@
+---
+title: "Documentation"
+author: "Chloe Barnes"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Project Log --- Data Cleaning & Preparation
+
+> Purpose: A record of **what** we did to the data, **why** we did it, and **how** to reproduce it.
+
+---
+
+## 0) Snapshot
+- **Project:** Firearm Policy / Shiny App (comparative state-level trends)
+- **Primary datasets:**
+  - CDC mortality (WONDER extracts) - counts & rates by state/year/intent
+  - RAND State Firearm Law Database - eneactment/repeal dates + policy typology
+- **Unit of Analysis (target):** State x Year 
+- **Time Span:** `YYYY`-`YYYY` (fill in)
+- **Repo path:** `data/`
+
+---
+
+## 1) Data Inventory
+- **Raw files sources 
+ - `data/data-table.csv` (source, row count, checksum)
+ - `data/TL_A243_2_v3_State_Firearm_Law_Database_5_0.xlsx`(source, row count, checksum)
+ 
+---
+
+## 2) Source Schemaa (Raw)
+**CDC Mortality:**
+- Keys: `YEAR`, `STATE`, `RATE`, `DEATHS`, 'URL'
+- Known quirks: rate per ...., 
+
+**RAND laws Database**
+- Keys: `Law ID`, `State`, `State Postal Abbreviations`, `FIPS Code`,  `Law Class (num)`, `Law Class`, `Law Class Subtype`, Handguns or Long Guns`, `Effect`, Type of Change`, `Effective Date Note`, `Effective Date Year`, `Effective Date Month`, `Effective Date Day`
+

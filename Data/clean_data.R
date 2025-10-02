@@ -2,7 +2,7 @@
 knitr::opts_chunk$set(echo = TRUE)
 library(readxl)
 TL_A243_2_v3_State_Firearm_Law_Database_5_0 <- read_excel("TL-A243-2-v3 State Firearm Law Database 5.0.xlsx", sheet = "Database")
-data.table <- read.csv("C:/Users/chloe/UVA_Classes/Machine Learning/Group Project/gun_policy_analysis/data-table.csv")
+data.table <- read.csv("data-table.csv")
 
 
 ## --------------------------------------------------------------------------------------------------
@@ -11,6 +11,10 @@ library(skimr)
 library(corrplot)
 library(VIM)
 library(plotly)
+library(janitor)
+library(lubridate)
+library(recipes)
+library(rsample)
 
 
 ## --------------------------------------------------------------------------------------------------
@@ -28,7 +32,7 @@ law_data <- law_data %>%
 
 
 ## --------------------------------------------------------------------------------------------------
-# Index subset of certerin columns of law data
+# Index subset of certain columns of law data
 law_data2 <- law_data[, c("law_id", "state", "effective_date_year", "law_class_num", "law_class", "law_class_subtype", "effect", "type_of_change")]
 
 

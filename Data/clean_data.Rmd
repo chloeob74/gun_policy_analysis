@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(readxl)
 TL_A243_2_v3_State_Firearm_Law_Database_5_0 <- read_excel("TL-A243-2-v3 State Firearm Law Database 5.0.xlsx", sheet = "Database")
-data.table <- read.csv("C:/Users/chloe/UVA_Classes/Machine Learning/Group Project/gun_policy_analysis/data-table.csv")
+data.table <- read.csv("data-table.csv")
 ```
 
 ```{r}
@@ -25,7 +25,7 @@ library(rsample)
 ```
 
 ```{r}
-# Load the CSV file (contains firarm dath rates)
+# Load the CSV file (contains firearm death rates)
 mortality_data <- data.table
 
 # Load Excel file (contains state firearm policies database)
