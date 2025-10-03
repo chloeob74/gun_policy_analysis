@@ -2,3 +2,16 @@
 .Rhistory
 .RData
 .Ruserdata
+
+Data/raw/
+Data/processed/
+Data/processed/*.parquet
+Data/processed/*.feather
+
+models/runs/
+models/artifacts/*rds
+.cache/
+.DS_Store
+
+reports/figures/
+reports/tables/
