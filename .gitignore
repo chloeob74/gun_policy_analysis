@@ -1,14 +1,22 @@
+# R / Rstudio
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
 
+# Data
 Data/raw/
 
+# Models & caches
 models/runs/
 models/artifacts/*rds
 .cache/
 .DS_Store
 
+# Outputs
 reports/figures/
 reports/tables/
+
+# renv cache
+renv/library/
+
