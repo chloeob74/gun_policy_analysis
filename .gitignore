@@ -5,7 +5,6 @@
 .Ruserdata
 
 # Data
-Data/raw/
 
 # Models & caches
 models/runs/
