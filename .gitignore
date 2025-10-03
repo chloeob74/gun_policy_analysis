@@ -4,9 +4,6 @@
 .Ruserdata
 
 Data/raw/
-Data/processed/
-Data/processed/*.parquet
-Data/processed/*.feather
 
 models/runs/
 models/artifacts/*rds
