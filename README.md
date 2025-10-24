@@ -1,6 +1,6 @@
 # A State-Level Firearm Policy Analysis
 
-A reproducible pipline to conbine CDC mortality data with the **RAND State Firearm Law Database** to engineer policy-strength features and analyze outcomes. Includes a Makefile-driven workflow and a Shiny App.
+A reproducible pipeline to combine CDC mortality data with the **RAND State Firearm Law Database** to engineer policy-strength features and analyze outcomes. Includes a Makefile-driven workflow and a Shiny App.
 
 ## Overview
 - **Goal:** Quantify relationships between policy changes and firearm mortality.
