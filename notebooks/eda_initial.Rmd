@@ -8,7 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(readxl)
-firemarm_data_cleaned <- read_excel("Data/processed/firmarm_data_cleaned.xlsx")
+firemarm_data_cleaned <- read_excel("../Data/processed/firmarm_data_cleaned.xlsx")
 ```
 
 
@@ -21,6 +21,8 @@ library(scales)
 library(maps)
 library(gridExtra)
 library(usmap)
+library(gganimate)
+library(gifski)
 ```
 
 
@@ -407,8 +409,6 @@ ggplot(map_data, aes(x = long, y = lat, group = group, fill = restrictive_ratio)
 ```
 ## Animate Map Over Time
 ```{r}
-library(gganimate)
-
 map_timeseries <- us_state %>%
   left_join(firearm_data %>% 
               mutate(state_lower = tolower(state_name),
@@ -427,7 +427,6 @@ p <- ggplot(map_timeseries, aes(x = long, y = lat, group = group, fill = rate)) 
   
 anim <- p + transition_time(year)
 
-library(gifski)
 a <- animate(anim, nframes = 200, fps = 10, width = 800, height = 500,
              renderer = gifski_renderer())
 ```
