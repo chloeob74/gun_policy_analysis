@@ -1,0 +1,506 @@
+---
+title: "Firearm Data EDA"
+author: "Chloe Barnes"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+firemarm_data_cleaned <- read_excel("Data/processed/firmarm_data_cleaned.xlsx")
+```
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(corrplot)
+library(tidyverse)
+library(scales)
+library(maps)
+library(gridExtra)
+library(usmap)
+```
+
+
+```{r}
+firearm_data <- firemarm_data_cleaned
+```
+
+# Basic Descriptive Statistics
+
+## Key Variables Summary
+```{r}
+firearm_data %>% 
+  select(year, rate, deaths, 
+         law_strength_score, restrictive_laws, 
+         permissive_laws) %>%
+  summary()
+```
+
+## Categorical Table Counts
+```{r}
+table(firearm_data$high_risk)
+table(firearm_data$year)
+```
+# Distribution of Firearm Death Rates
+
+## Histogram
+```{r}
+ggplot(firearm_data, aes(x = rate)) +
+  geom_histogram(bins = 30, fill = 'steelblue', color = "white") +
+  geom_vline(aes(xintercept = mean(rate, na.rm = TRUE)),
+             color = "red", linetype = "dashed", size = 1) +
+  labs(title = "Distribution of Firearm Death Rates",
+       subtitle = "Red line indicates mean rate",
+       x = "Death Rate per 100,000",
+       y = "Frequnecy") +
+  theme_minimal()
+```
+# Boxplot of high_risk classification
+```{r}
+ggplot(firearm_data, aes(x = factor(high_risk), y = rate, fill = factor(high_risk))) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("0" = "lightgreen", "1" = "coral")) +
+  labs(title = "Death Rates: Low Risk vs High Risk States",
+       x = "High Risk (0 = No, 1 = Yes)",
+       y = "Death Rate per 100,000",
+       fill = "Risk Level") +
+  theme_minimal()
+```
+```{r}
+ggplot(firearm_data, aes(x = factor(high_risk), y = law_strength_score, fill = factor(high_risk))) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("0" = "lightgreen", "1" = "coral")) +
+  labs(title = "Law Strength: Low Risk vs High Risk States",
+       x = "High Risk (0 = No, 1 = Yes)",
+       y = "Law Strength Score",
+       fill = "Risk Level") +
+  theme_minimal()
+```
+
+# Temporal Trends
+
+# Overall trend over time
+```{r}
+firearm_data %>%
+  group_by(year) %>%
+  summarise(avg_rate = mean(rate, na.rm = TRUE),
+            avg_deaths = mean(deaths, na.rm = TRUE),
+            avg_law_strength = mean(law_strength_score, na.rm = TRUE)) %>%
+  ggplot(aes(x = year, y = avg_rate)) +
+  geom_line(color = "darkred", size = 1.2) +
+  geom_point(size = 3, color = "darkred") +
+  labs(title = "Average Firearm Death Rate Over Time (2014 - 2013)",
+       x = "Year",
+       y = "Average Death Rate per 100,000") +
+  theme_minimal()
+```
+## Trend by risk level
+```{r}
+firearm_data %>%
+  group_by(year, high_risk) %>%
+  summarise(avg_rate = mean(rate, na.rm = TRUE), .groups = "drop") %>%
+  ggplot(aes(x = year, y = avg_rate, color = factor(high_risk), group = high_risk)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c("0" = "steelblue", "1" = "coral"),
+                     labels = c("Low Risk", "High Risk")) +
+  labs(title = "Death Rate Trends by Risk Category",
+       x = "Year",
+       y = "Average DEat hRate per 100,000",
+       color = "Risk Level") +
+  theme_minimal()
+```
+
+# Gun Law Analytics
+## Restrictive vs Permissive Laws
+```{r}
+ggplot(firearm_data, aes(restrictive_laws, y = permissive_laws)) +
+  geom_point(aes(color = rate, size = rate), alpha = 0.6) +
+  scale_color_gradient(low = "green", high = "red") +
+  labs(title = "Restrictive vs Permissive Laws by Death Rate",
+       x = "Number of Restrictive Laws",
+       y = "Number of Permissive Laws",
+       color = "Death Rate",
+       size = "Death Rate") +
+  theme_minimal()
+```
+
+## Law Strength vs Death Rate
+```{r}
+ggplot(firearm_data, aes(x = law_strength_score, y = rate)) +
+  geom_point(aes(color = factor(high_risk)), alpha = 0.6) +
+  geom_smooth(method = "lm", se = TRUE, color = "blue") +
+  scale_color_manual(values = c("0" = "steelblue", "1" = "coral"),
+                     labels = c("Low Risk", "High Risk")) +
+  labs(title = "Gun Law Strength vs Firearm Death Rate",
+       subtitle = "Blue lines shows linear relationship",
+       x = "Law Strength Score",
+       y = "Death Rate per 100,000",
+       color = "Risk Level") +
+  theme_minimal()
+```
+## Distribution of law strength by risk level
+```{r}
+ggplot(firearm_data, aes(x = law_strength_score, fill = factor(high_risk))) +
+  geom_density(alpha = 0.5) +
+  scale_fill_manual(values = c("0" = "steelblue", "1" = "coral"),
+                    labels = c("Low Risk", "High Risk")) +
+  labs(title = "Distribution of Law Strength Scores",
+       x = "Law Strength Score",
+       y = "Density",
+       fill = "Risk Level") +
+  theme_minimal()
+```
+# Specific Law Categories Analysis
+## Get strength variables only
+```{r}
+strength_vars <- firearm_data %>%
+  select(starts_with("strength_")) %>%
+  names()
+```
+
+## Average strength by category
+```{r}
+strength_avg <- firearm_data %>%
+  select(all_of(strength_vars)) %>%
+  summarize(across(everything(), ~mean(.x, na.rm = TRUE))) %>%
+  pivot_longer(everything(), names_to = "law_type", values_to = "avg_strength") %>%
+  mutate(law_type = str_remove(law_type, "strength_"),
+         law_type = str_replace_all(law_type, "_", " "),
+         law_type = str_to_title(law_type)) %>%
+  arrange(desc(avg_strength))
+```
+
+```{r}
+ggplot(strength_avg, aes(x = reorder(law_type, avg_strength), y = avg_strength)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Average Strength Score by Law Category",
+       x = "Law Category",
+       y = "Average Strength Score") +
+  theme_minimal()
+```
+
+# State Level Comparisons
+## Top 10 states by death rate (2024)
+```{r}
+firearm_data %>%
+  filter(year == max(year)) %>%
+  arrange(desc(rate)) %>%
+  head(10) %>%
+  ggplot(aes(x = reorder(state_name, rate), y = rate)) +
+  geom_col(fill = "coral") +
+  coord_flip() +
+  labs(title = "Top 10 States By Firearm Death Rate (2024)",
+       x = "State",
+       y = "Death Rate per 100,000") +
+  theme_minimal()
+```
+## Bottom 10 states
+```{r}
+firearm_data %>%
+  filter(year == max(year)) %>%
+  arrange(rate) %>%
+  head(10) %>%
+  ggplot(aes(x = reorder(state_name, rate), y = rate)) +
+  geom_col(fill = "coral") +
+  coord_flip() +
+  labs(title = "Bottom 10 States By Firearm Death rate (2024)",
+       x = "State",
+       y = "Death Rate per 100,000") +
+  theme_minimal()
+```
+# Correlation Analysis
+## Select key numeric variables
+```{r}
+cor_vars <- firearm_data %>%
+  select(rate, deaths, law_strength_score, restrictive_laws, permissive_laws, restrictive_ratio, permissive_ratio, starts_with("strength_")) %>%
+  select_if(~!all(is.na(.)))
+```
+
+## Calculate Correlation matrix
+```{r}
+cor_matrix <- cor(cor_vars, use = "complete.obs")
+```
+
+## Visualize correlation matrix
+
+```{r}
+corrplot(cor_matrix, method = "color", type = "upper",
+         tl.col = "black", tl.srt = 45, tl.cex = 0.6,
+         title = "Correlation Matrix: Death Rates and Gun Laws",
+         mar = c(0,0,2,0))
+```
+## Get corrlations with rate
+```{r}
+rate_cors <- cor_matrix[, "rate"] %>%
+  as.data.frame() %>%
+  rownames_to_column("variable") %>%
+  rename(correlation = ".") %>%
+  filter(variable != "rate") %>%
+  arrange(desc(abs(correlation))) %>%
+  head(15)
+
+print("Top 15 correlations with death rate:")
+print(rate_cors)
+```
+
+# Year-Over-Year Changes
+
+## Rate changes over time
+```{r}
+firearm_data %>%
+  filter(!is.na(rate_change)) %>%
+  ggplot(aes(x = as.numeric(rate_change))) +
+  geom_histogram(bins = 30, fill = "purple", alpha = 0.7) +
+  geom_vline(xintercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Distribution of Year-over-year Rate Changes",
+       x= "Change in Death Rate",
+       y = "Count") +
+  theme_minimal()
+```
+
+```{r}
+firearm_data %>%
+  filter(!is.na(law_strength_change)) %>%
+  ggplot(aes(x = as.numeric(law_strength_change))) +
+  geom_histogram(bins = 30, fill = "purple", alpha = 0.7) +
+  geom_vline(xintercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Distribution of Year-over-year Law Strength Changes",
+       x= "Change in Law Strength Score",
+       y = "Count") +
+  theme_minimal()
+```
+
+# Summary Statistics Table
+
+```{r}
+summary_table <- firearm_data %>%
+  group_by(high_risk) %>%
+  summarise(
+    n = n(),
+    avg_rate = mean(rate, na.rm = TRUE),
+    sd_rate = sd(rate, na.rm = TRUE),
+    avg_deaths = mean(deaths, na.rm = TRUE),
+    avg_law_strength = mean(law_strength_score, na.rm = TRUE),
+    avg_restrictive = mean(restrictive_laws, na.rm = TRUE),
+    avg_permissive = mean(permissive_laws, na.rm = TRUE)
+  ) %>%
+  mutate(across(where(is.numeric) & !n, ~round(.x, 2)))
+
+print(summary_table)
+```
+
+# Map Data
+
+## Prepare Map data
+```{r}
+# get most recent year data
+recent_data <- firearm_data %>%
+  filter(year == max(year)) %>%
+  mutate(state_lower = tolower(state_name))
+```
+
+```{r}
+# get US state map data
+us_state <- map_data("state")
+```
+
+```{r}
+# merge with our data
+map_data <- us_state %>%
+  left_join(recent_data, by = c("region" = "state_lower"))
+```
+
+## Death Rate Map (2024)
+
+```{r}
+ggplot(map_data, aes(x = long, y = lat, group = group, fill = rate)) +
+  geom_polygon(color = "white", size = 0.2) +
+  scale_fill_viridis_c(option = "plasma", direction = -1,
+                     name = "Death Rate \nper 100k") +
+  labs(title = "Firearm Death Rate by State (2023)",
+       subtitle = "Darker colors indicate higher death rates") +
+  theme_void() +
+  theme(legend.position = "right",
+        plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+        plot.subtitle = element_text(hjust = 0.5, size = 12))
+```
+```{r}
+ggplot(map_data, aes(x = long, y = lat, group = group, fill = law_strength_score)) +
+  geom_polygon(color = "white", size = 0.2) +
+  scale_fill_viridis_c(option = "plasma", name = "Law Strength\nScore") +
+  labs(title = "Gun Law Strength by State (2023)",
+       subtitle = "Higher scores indicate more restricitve laws") +
+  theme_void() +
+  theme(legend.position = "right",
+        plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+        plot.subtitle = element_text(hjust = 0.5, size = 12))
+```
+
+```{r}
+p1 <- ggplot(map_data, aes(x = long, y = lat, group = group, fill = rate)) +
+  geom_polygon(color = "white", size = 0.2) +
+  scale_fill_viridis_c(option = "plasma", direction = -1, name = "Rate") +
+  labs(title = "Death Rate")
+  theme_void() +
+  theme(legend.position = "bottom",
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+
+p2 <- ggplot(map_data, aes(x = long, y = lat, group = group, fill = law_strength_score)) +
+  geom_polygon(Color = "white", size = 0.2) +
+  scale_fill_viridis_c(option = "viridis", name = "Score")
+  labs(title = "Law Strength") +
+  theme_void() +
+  theme(legend.position = "bottom",
+        plot.title = element_text(hjust = 0.5, face = "bold"))
+
+grid.arrange(p1, p2, ncol = 2,
+             top = "Geographic Comparison: Death Rates vs Law Strength (2024)")
+```
+## Change over time Map
+```{r}
+# Calculate change from 2014 to 2023
+change_data <- firearm_data%>%
+  filter(year %in% c(2014, 2023)) %>%
+  select(state_name, year, rate) %>%
+  pivot_wider(names_from = year, values_from = rate, names_prefix = "year_") %>%
+  mutate(rate_change = year_2023 - year_2014,
+         state_lower = tolower(state_name))
+```
+
+```{r}
+# Merge with map data
+map_change <- us_state %>%
+  left_join(change_data, by = c("region" = "state_lower"))
+
+lim <- max(abs(map_change$rate_change), na.rm = TRUE)
+
+ggplot(map_change, aes(x = long, y = lat, group = group, fill = rate_change)) +
+  geom_polygon(color = "white", size = 0.2) +
+  scale_fill_gradient2(
+    low = "darkgreen", mid = "white", high = "darkred",
+    midpoint = 0, limits = c(-lim, lim),
+    name = "Change in \nDeath Rate") +
+  labs(title = "Change in Firearm Death Rate (2014 to 2023)",
+       subtitle = "Red = increased, Green = decreased") +
+  theme_void() +
+  theme(legend.position = "right",
+        plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+        plot.subtitle = element_text(hjust = 0.5, size = 12))
+```
+## Restrictive vs Permissive Laws Map
+```{r}
+ggplot(map_data, aes(x = long, y = lat, group = group, fill = restrictive_ratio)) +
+  geom_polygon(color = "white", size = 0.2) +
+  scale_fill_gradient2(low = "coral", mid = "lightyellow", high = "steelblue",
+                       midpoint = 0.5, name = "Restrictive\nRatio") +
+  labs(title = "Proportion of Restrictive Gun Laws by State (2023)",
+       subtitle = "Blue = more restrictive, Red = more permissive") +
+  theme_void() +
+  theme(legend.position = "right",
+        plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+        plot.subtitle = element_text(hjust = 0.5, size = 12))
+```
+## Animate Map Over Time
+```{r}
+library(gganimate)
+
+map_timeseries <- us_state %>%
+  left_join(firearm_data %>% 
+              mutate(state_lower = tolower(state_name),
+                     year = as.integer(year),
+                     rate = as.numeric(rate)),
+            by = c("region" = "state_lower"),
+            relationship = "many-to-many") %>%
+  arrange(year, group, order)
+
+p <- ggplot(map_timeseries, aes(x = long, y = lat, group = group, fill = rate)) +
+  geom_polygon(color = "white", size = 0.2) +
+  coord_fixed(1.3) +
+  scale_fill_viridis_c(option = "plasma", direction = -1, name = "Death Rate") +
+  labs(title = "Firearm Death Rate - Year: {frame_time}") +
+  theme_void()
+  
+anim <- p + transition_time(year)
+
+library(gifski)
+a <- animate(anim, nframes = 200, fps = 10, width = 800, height = 500,
+             renderer = gifski_renderer())
+```
+```{r}
+key_years <- c(2014, 2017, 2020, 2024)
+
+map_facet <- us_state %>%
+  left_join(firearm_data %>% 
+              filter(year %in% key_years) %>%
+              mutate(state_lower = tolower(state_name)), 
+            by = c("region" = "state_lower"))
+
+ggplot(map_facet, aes(x = long, y = lat, group = group, fill = rate)) +
+  geom_polygon(color = "white", size = 0.2) +
+  scale_fill_viridis_c(option = "plasma", direction = -1, name = "Death Rate") +
+  facet_wrap(~year, ncol = 2) +
+  labs(title = "Firearm Death Rates Over Time") +
+  theme_void() +
+  theme(legend.position = "bottom",
+        plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
+        strip.text = element_text(size = 12, face = "bold"))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
