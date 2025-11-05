@@ -1,0 +1,467 @@
+---
+title: "Predictive Models"
+author: "Chloe Barnes"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+firearm_data_cleaned <- read_excel("../Data/processed/firmarm_data_cleaned.xlsx")
+```
+
+```{r}
+library(tidyverse)
+library(caret)
+library(glmnet)
+library(class)
+library(cluster)
+library(factoextra)
+library(keras3)
+library(gridExtra)
+library(tensorflow)
+library(reticulate)
+```
+
+# Data Preparation
+
+```{r}
+# Create clean dataset
+model_data <- firearm_data_cleaned %>%
+  select(rate, year, state_name, law_strength_score,
+         restrictive_laws, permissive_laws, restrictive_ratio, permissive_ratio,
+         starts_with("strength_")) %>%
+  drop_na(rate)
+```
+
+```{r}
+# Change state_name into factor
+model_data <- model_data %>%
+  mutate(state_factor = factor(state_name))
+```
+
+```{r}
+# Split Data : 80% Train, 20% Test
+set.seed(123)
+train_idx <- createDataPartition(model_data$rate, p = 0.8, list = FALSE)
+train_data <- model_data[train_idx, ]
+test_data <- model_data[-train_idx, ]
+
+cat("Training set size: ", nrow(train_data), "\n")
+cat("Testing set size:", nrow(test_data), "\n")
+```
+# Linear Regression
+
+```{r}
+# Simple model with main predictors year and law strength score
+lm_model1 <- lm(rate ~ year + law_strength_score, data = train_data)
+summary(lm_model1)
+```
+```{r}
+# Check the assumptions
+par(mfrow = c(2, 2))
+plot(lm_model1)
+par(mfrow = c(1, 1))
+```
+```{r}
+# More complex model with additional predictors
+lm_model2 <- lm(rate ~ year + law_strength_score + restrictive_laws + permissive_laws, data = train_data)
+summary(lm_model2)
+```
+```{r}
+# Predictions on test set
+lm_pred1 <- predict(lm_model1, newdata = test_data)
+lm_pred2 <- predict(lm_model2, newdata = test_data)
+```
+
+
+```{r}
+lm_rmse1 <- sqrt(mean((test_data$rate - lm_pred1)^2))
+lm_rmse2 <- sqrt(mean((test_data$rate - lm_pred2)^2))
+lm_r2_1 <- cor(test_data$rate, lm_pred1)^2
+lm_r2_2 <- cor(test_data$rate, lm_pred2)^2
+
+cat("\nModel 1 Test RMSE:", round(lm_rmse1, 3), "| R²:", round(lm_r2_1, 3), "\n")
+cat("Model 2 Test RMSE:", round(lm_rmse2, 3), "| R²:", round(lm_r2_2, 3), "\n")
+```
+```{r}
+# Visualize predicted values vs actual values
+ggplot(data.frame(actual = test_data$rate, predicted = lm_pred2),
+       aes(x = actual, y = predicted)) +
+  geom_point(alpha = 0.6, color = "steelblue") +
+  geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Linear regression: Predicted vs Actual",
+       x = "Actual Death Rate",
+       y = "Predicted Death Rate") +
+  theme_minimal()
+```
+# Ridge and Lasso Regression (GLM with regularization)
+```{r}
+# Prepare matrix for glmnet
+x_train <- model.matrix(rate ~ year + law_strength_score + restrictive_laws +
+                          permissive_laws + restrictive_ratio + 
+                          permissive_ratio, data = train_data)[, -1]
+y_train <- train_data$rate
+
+x_test <- model.matrix(rate ~ year + law_strength_score + restrictive_laws +
+                          permissive_laws + restrictive_ratio + 
+                          permissive_ratio, data = test_data)[, -1]
+y_test <- test_data$rate
+```
+
+```{r}
+# Ridge Regression (alpha = 0)
+ridge_cv <- cv.glmnet(x_train, y_train, alpha = 0)
+ridge_pred <- predict(ridge_cv, s = "lambda.min", newx = x_test)
+ridge_rmse <- sqrt(mean((y_test - ridge_pred)^2))
+```
+
+```{r}
+# Lasso Regression (alpha = 1)
+lasso_cv <- cv.glmnet(x_train, y_train, alpha = 1)
+lasso_pred <- predict(lasso_cv, s= "lambda.min", newx = x_test)
+lasso_rmse <- sqrt(mean((y_test - lasso_pred)^2))
+```
+
+```{r}
+cat("Ridge Test RMSE:", round(ridge_rmse, 3), "\n")
+cat("Ridge Test RMSE:", round(lasso_rmse, 3), "\n")
+```
+```{r}
+# Plot coefficient paths
+plot(lasso_cv)
+title("Lasso Cross-Validation", line = 2.5)
+```
+
+# K-Nearest Neighbors
+
+```{r}
+# Prepare data (scale predictors)
+knn_train <- train_data %>%
+  select(year, law_strength_score, restrictive_laws, permissive_laws)
+
+knn_test <- test_data %>%
+  select(year, law_strength_score, restrictive_laws, permissive_laws)
+```
+
+```{r}
+# Scale the data
+preprocess <- preProcess(knn_train, method = c("center", "scale"))
+knn_train_scaled <- predict(preprocess, knn_train)
+knn_test_scaled <- predict(preprocess, knn_test)
+```
+
+```{r}
+# Try different k values
+k_values <- c(3, 5, 7, 10, 15, 20)
+knn_results <- data.frame(k = k_values, rmse = NA, r2 = NA)
+
+for (i in seq_along(k_values)) {
+  k <- k_values[i]
+  knn_pred <- knnreg(knn_train_scaled, train_data$rate, k = k) %>%
+    predict(knn_test_scaled)
+  
+  knn_results$rmse[i] <- sqrt(mean((test_data$rate - knn_pred) ^2))
+  knn_results$r2[i] <- cor(test_data$rate, knn_pred)^2
+}
+
+print(knn_results)
+```
+
+```{r}
+# Plot RMSE vs k
+ggplot(knn_results, aes(x = k, y = rmse)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_point(size = 3, color = "steelblue") +
+  labs(title = "KNN: RMSE vs Number of Neighbors",
+       x = "k (Number of Neighbors)",
+       y = "Test RMSE") +
+  theme_minimal()
+```
+```{r}
+# Best k
+best_k <- knn_results$k[which.min(knn_results$rmse)]
+cat("Best k:", best_k, "with RMSE:", round(min(knn_results$rmse), 3), "\n")
+```
+
+# K-Means Clustering (Unsupervised)
+```{r}
+# Cluster states based on law characteristics
+cluster_data <- firearm_data %>%
+  filter(year == 2023) %>%
+  select(state_name, law_strength_score, restrictive_laws, 
+         permissive_laws, rate) %>%
+  drop_na()
+```
+
+```{r}
+# Scale features for clustering (exclude state_name and rate)
+cluster_features <- cluster_data %>%
+  select(-state_name, -rate) %>%
+  scale()
+```
+
+```{r}
+# Determine optimal number of clusters
+set.seed(123)
+fviz_nbclust(cluster_features, kmeans, method = "wss") +
+  labs(title = "Elbow Method for Optimal k")
+
+fviz_nbclust(cluster_features, kmeans, method = "silhouette") +
+  labs(title = "Silhouette Method for Optimal k")
+```
+```{r}
+# Perform k-means with k=2
+set.seed(123)
+kmeans_result <- kmeans(cluster_features, centers = 3, nstart = 25)
+```
+
+```{r}
+# Add cluster assignments
+cluster_data$cluster <- factor(kmeans_result$cluster)
+```
+
+```{r}
+# Visualize clusters
+fviz_cluster(kmeans_result, data = cluster_features,
+             geom = "point",
+             ellipse.type = "convex",
+             palette = "jco",
+             ggtheme = theme_minimal(),
+             main = "K-Means Clustering of States by Gun Laws")
+```
+```{r}
+# Compare death rates across clusters
+ggplot(cluster_data, aes(x = cluster, y = rate, fill = cluster)) +
+  geom_boxplot() +
+  labs(title = "Death Rates by State Cluster",
+       x = "Cluster",
+       y = "Death Rate per 100k") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+```{r}
+# Summary statistics by cluster
+cluster_summary <- cluster_data %>%
+  group_by(cluster) %>%
+  summarise(
+    n_states = n(),
+    avg_rate = mean(rate),
+    avg_law_strength = mean(law_strength_score),
+    avg_restrictive = mean(restrictive_laws),
+    avg_permissive = mean(permissive_laws)
+  ) %>%
+  mutate(across(where(is.numeric) & !n_states, ~round(.x, 2)))
+
+print("Cluster Characteristics:")
+print(cluster_summary)
+```
+
+# Multilayer Pecrptron (MLP/Neural Network)
+
+
+```{r}
+# Prepare data for neural network
+nn_train <- train_data %>%
+  select(year, law_strength_score, restrictive_laws, permissive_laws) %>%
+  as.matrix()
+
+nn_test <- test_data %>%
+  select(year, law_strength_score, restrictive_laws, permissive_laws) %>%
+  as.matrix()
+```
+
+```{r}
+# Normalize features
+nn_mean <- colMeans(nn_train)
+nn_std <- apply(nn_train, 2, sd)
+
+nn_train_scaled <- scale(nn_train, center = nn_mean, scale = nn_std)
+nn_test_scaled <- scale(nn_test, center = nn_mean, scale = nn_std)
+```
+
+```{r}
+# Normalize target
+y_train_nn <- train_data$rate
+y_test_nn <- test_data$rate
+y_mean <- mean(y_train_nn)
+y_std <- sd(y_train_nn)
+
+y_train_scaled <- (y_train_nn - y_mean) / y_std
+y_test_scaled <- (y_test_nn - y_mean) / y_std
+```
+
+```{r}
+# Build MLP model
+model <- keras_model_sequential() %>%
+  layer_dense(units = 64, activation = "relu", input_shape = ncol(nn_train_scaled)) %>%
+  layer_dropout(rate = 0.2) %>%
+  layer_dense(units = 32, activation = "relu") %>%
+  layer_dropout(rate = 0.2) %>%
+  layer_dense(units = 16, activation = "relu") %>%
+  layer_dense(units = 1)
+```
+
+```{r}
+# Compile model
+model %>% compile(
+  loss = "mse",
+  optimizer = optimizer_adam(learning_rate = 0.001),
+  metrics = c("mae")
+)
+```
+
+```{r}
+# Train model
+history <- model %>% fit(
+  nn_train_scaled, y_train_scaled,
+  epochs = 100,
+  batch_size = 32,
+  validation_split = 0.2,
+  verbose = 0
+)
+```
+
+```{r}
+# Plot training history
+plot(history)
+```
+
+```{r}
+# Predictions
+nn_pred_scaled <- model %>% predict(nn_test_scaled)
+nn_pred <- nn_pred_scaled * y_std + y_mean
+```
+
+```{r}
+# Evaluate
+nn_rmse <- sqrt(mean((y_test_nn - nn_pred)^2))
+nn_r2 <- cor(y_test_nn, nn_pred)^2
+
+cat("MLP Test RMSE:", round(nn_rmse, 3), "| R²:", round(nn_r2, 3), "\n")
+```
+
+```{r}
+# Visualize predictions
+ggplot(data.frame(actual = y_test_nn, predicted = as.vector(nn_pred)), 
+       aes(x = actual, y = predicted)) +
+  geom_point(alpha = 0.6, color = "purple") +
+  geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "MLP: Predicted vs Actual",
+       x = "Actual Death Rate",
+       y = "Predicted Death Rate") +
+  theme_minimal()
+```
+
+# Principal Component Analysis (PCA)
+
+```{r}
+# Select law-related variables for PCA
+pca_data <- firearm_data %>%
+  filter(year == 2023) %>%
+  select(starts_with("strength_")) %>%
+  drop_na()
+```
+
+```{r}
+# Perform PCA
+pca_result <- prcomp(pca_data, scale. = TRUE)
+```
+
+```{r}
+# Scree plot
+fviz_eig(pca_result, addlabels = TRUE) +
+  labs(title = "PCA: Variance Explained by Principal Components")
+```
+
+```{r}
+# Biplot
+fviz_pca_var(pca_result,
+             col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE) +
+  labs(title = "PCA Variable Contribution Plot")
+```
+
+```{r}
+# Get PC scores and merge with death rate
+pca_scores <- as.data.frame(pca_result$x[, 1:5])
+pca_scores$rate <- firearm_data %>% 
+  filter(year == 2023) %>% 
+  pull(rate) %>% 
+  na.omit()
+```
+
+```{r}
+# Regression using PC scores
+pca_lm <- lm(rate ~ PC1 + PC2 + PC3, data = pca_scores)
+summary(pca_lm)
+```
+
+```{r}
+# Visualize PC1 vs PC2 colored by death rate
+ggplot(pca_scores, aes(x = PC1, y = PC2, color = rate)) +
+  geom_point(size = 3, alpha = 0.7) +
+  scale_color_viridis_c(option = "plasma") +
+  labs(title = "PCA: First Two Principal Components",
+       subtitle = "Colored by Death Rate",
+       color = "Death Rate") +
+  theme_minimal()
+```
+
+# Model Comparison
+
+```{r}
+# Compile Results
+results <- data.frame(
+  Model = c("Linear Regression (Simple)", "Linear Regression (Complex)",
+            "Ridge Regression", "Lasso Regression", "KNN (best k)", "MLP"),
+  RMSE = c(lm_rmse1, lm_rmse2, ridge_rmse, lasso_rmse,
+           min(knn_results$rmse), nn_rmse),
+  R_squared = c(lm_r2_1, lm_r2_2, NA, NA,
+                max(knn_results$r2), nn_r2)
+) %>%
+  mutate(across(where(is.numeric), ~round(.x, 3)))
+
+print(results)
+```
+
+```{r}
+# Visualize model comparison
+ggplot(results, aes(x = reorder(Model, -RMSE), y = RMSE, fill = Model)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "Model Comparison: Test RMSE",
+       x = "Model",
+       y = "RMSE (Lower is Better)") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
