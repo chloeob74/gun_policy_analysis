@@ -22,6 +22,7 @@ library(keras3)
 library(lme4)
 library(broom)
 library(corrplot)
+library(car)
 ```
 
 ## Load Data
@@ -31,7 +32,7 @@ data <- firearm_data_cleaned
 
 
 ## Research Question 1:
-Can we predict firearm death rates based on gun law characteristics
+**Can we predict firearm death rates based on gun law characteristics**
 
 ```{r}
 # Prepare modeling dataset
@@ -43,6 +44,13 @@ model_data <- data %>%
 ```
 
 ```{r}
+# check correlation between variables
+cor(model_data$restrictive_laws, model_data$permissive_laws)
+cor(model_data$law_strength_score, model_data$restrictive_laws)
+cor(model_data$law_strength_score, model_data$permissive_laws)
+```
+
+```{r}
 # Train/test split
 set.seed(123)
 train_idx <- createDataPartition(model_data$rate, p=0.8, list = FALSE)
@@ -50,11 +58,12 @@ train_data <- model_data[train_idx, ]
 test_data <- model_data[-train_idx, ]
 ```
 
-## Model 1: Simple Linear Regression 
+## Model 1.1: Simple Linear Regression 
 ```{r}
 lm1 <- lm(rate ~ law_strength_score, data = train_data)
 summary(lm1)
 ```
+
 ```{r}
 # Predictions 
 pred_lm1 <- predict(lm1, newdata = test_data)
@@ -64,9 +73,9 @@ r2_lm1 <- cor(test_data$rate, pred_lm1)^2
 print(rmse_lm1)
 print(r2_lm1)
 ```
-## Model 2: Multiple Linear Regression
+## Model 1.2: Multiple Linear Regression
 ```{r}
-lm2 <- lm(rate ~ law_strength_score + restrictive_laws + permissive_laws + year, data = train_data)
+lm2 <- lm(rate ~ restrictive_laws + permissive_laws + year, data = train_data)
 summary(lm2)
 ```
 ```{r}
@@ -79,16 +88,27 @@ r2_lm2 <- cor(test_data$rate, pred_lm2)^2
 print(rmse_lm2)
 print(r2_lm2)
 ```
+### Interpretation Note
+In Model 1.2, we can now see if restrictive and permissive laws have
+- Differenent magnitudes of effect (are coefficients equal in absolute values?)
+- Symmetric effects (do they operate in opposite directions equally?)
+
 ```{r}
 # Check assumptions
 par(mfrow = c(2, 2))
 plot(lm2, main = "Model 2 Diagnostics")
 par(mfrow = c(1, 1))
 ```
-## Model 3: K-Nearest Neighbors
+### Calculate VIF to verify no multicollinearity
+```{r}
+vif_values <- vif(lm2)
+print(round(vif_values, 2))
+```
+
+## Model 1.3: K-Nearest Neighbors
 
 ```{r}
-knn_features <- c("year", "law_strength_score", "restrictive_laws", "permissive_laws")
+knn_features <- c("year", "restrictive_laws", "permissive_laws")
 knn_train <- train_data %>% select(all_of(knn_features))
 knn_test <- test_data %>% select(all_of(knn_features))
 ```
@@ -117,6 +137,7 @@ best_knn_rmse <- min(knn_results$rmse)
 best_k
 best_knn_rmse
 ```
+
 ```{r}
 # Plot k optimization
 ggplot(knn_results, aes(x = k, y = rmse)) +
@@ -128,7 +149,70 @@ ggplot(knn_results, aes(x = k, y = rmse)) +
        y = "Test RMSE") +
   theme_minimal()
 ```
+## Model 1.4: Multilayer Perceptron (Neural Network)
 
+```{r}
+# Prepare data
+nn_train <- train_data %>%
+  select(year, restrictive_laws, permissive_laws) %>%
+  as.matrix()
+nn_test <- test_data %>%
+  select(year, restrictive_laws, permissive_laws) %>%
+  as.matrix()
+```
+
+```{r}
+# Normalize
+nn_mean <- colMeans(nn_train)
+nn_std <- apply(nn_train, 2, sd)
+nn_train_scaled <- scale(nn_train, center = nn_mean, scale = nn_std)
+nn_test_scaled <- scale(nn_test, center = nn_mean, scale = nn_std)
+
+y_train <- train_data$rate
+y_test <- test_data$rate
+y_mean <- mean(y_train)
+y_std <- sd(y_train)
+y_train_scaled <- (y_train - y_mean) / y_std
+```
+
+```{r}
+# Build MLP
+mlp_model <- keras_model_sequential() %>%
+  layer_dense(units = 32, activation = "relu", input_shape = ncol(nn_train_scaled)) %>%
+  layer_dropout(rate = 0.3) %>%
+  layer_dense(units = 16, activation = "relu") %>%
+  layer_dense(units = 1)
+
+mlp_model %>% compile(
+  loss = "mse",
+  optimizer = optimizer_adam(learning_rate = 0.001),
+  metrics = c("mae")
+)
+```
+
+```{r}
+# Train
+history <- mlp_model %>% fit(
+  nn_train_scaled, y_train_scaled,
+  epochs = 100,
+  batch_size = 16,
+  validation_split = 0.2,
+  verbose = 0
+)
+```
+
+```{r}
+# Predictions
+nn_pred_scaled <- mlp_model %>% predict(nn_test_scaled, verbose = 0)
+nn_pred <- as.vector(nn_pred_scaled * y_std + y_mean)
+rmse_mlp <- sqrt(mean((y_test - nn_pred)^2))
+r2_mlp <- cor(y_test, nn_pred)^2
+```
+
+```{r}
+rmse_mlp
+r2_mlp
+```
 
 
 
