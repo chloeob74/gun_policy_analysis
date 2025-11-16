@@ -343,70 +343,7 @@ ggplot(map_data, aes(x = long, y = lat, group = group, fill = law_strength_score
         plot.subtitle = element_text(hjust = 0.5, size = 12))
 ```
 
-```{r}
-p1 <- ggplot(map_data, aes(x = long, y = lat, group = group, fill = rate)) +
-  geom_polygon(color = "white", size = 0.2) +
-  scale_fill_viridis_c(option = "plasma", direction = -1, name = "Rate") +
-  labs(title = "Death Rate")
-  theme_void() +
-  theme(legend.position = "bottom",
-        plot.title = element_text(hjust = 0.5, face = "bold"))
 
-p2 <- ggplot(map_data, aes(x = long, y = lat, group = group, fill = law_strength_score)) +
-  geom_polygon(Color = "white", size = 0.2) +
-  scale_fill_viridis_c(option = "viridis", name = "Score")
-  labs(title = "Law Strength") +
-  theme_void() +
-  theme(legend.position = "bottom",
-        plot.title = element_text(hjust = 0.5, face = "bold"))
-
-grid.arrange(p1, p2, ncol = 2,
-             top = "Geographic Comparison: Death Rates vs Law Strength (2024)")
-```
-## Change over time Map
-```{r}
-# Calculate change from 2014 to 2023
-change_data <- firearm_data%>%
-  filter(year %in% c(2014, 2023)) %>%
-  select(state_name, year, rate) %>%
-  pivot_wider(names_from = year, values_from = rate, names_prefix = "year_") %>%
-  mutate(rate_change = year_2023 - year_2014,
-         state_lower = tolower(state_name))
-```
-
-```{r}
-# Merge with map data
-map_change <- us_state %>%
-  left_join(change_data, by = c("region" = "state_lower"))
-
-lim <- max(abs(map_change$rate_change), na.rm = TRUE)
-
-ggplot(map_change, aes(x = long, y = lat, group = group, fill = rate_change)) +
-  geom_polygon(color = "white", size = 0.2) +
-  scale_fill_gradient2(
-    low = "darkgreen", mid = "white", high = "darkred",
-    midpoint = 0, limits = c(-lim, lim),
-    name = "Change in \nDeath Rate") +
-  labs(title = "Change in Firearm Death Rate (2014 to 2023)",
-       subtitle = "Red = increased, Green = decreased") +
-  theme_void() +
-  theme(legend.position = "right",
-        plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
-        plot.subtitle = element_text(hjust = 0.5, size = 12))
-```
-## Restrictive vs Permissive Laws Map
-```{r}
-ggplot(map_data, aes(x = long, y = lat, group = group, fill = restrictive_ratio)) +
-  geom_polygon(color = "white", size = 0.2) +
-  scale_fill_gradient2(low = "coral", mid = "lightyellow", high = "steelblue",
-                       midpoint = 0.5, name = "Restrictive\nRatio") +
-  labs(title = "Proportion of Restrictive Gun Laws by State (2023)",
-       subtitle = "Blue = more restrictive, Red = more permissive") +
-  theme_void() +
-  theme(legend.position = "right",
-        plot.title = element_text(hjust = 0.5, face = "bold", size = 16),
-        plot.subtitle = element_text(hjust = 0.5, size = 12))
-```
 ## Animate Map Over Time
 ```{r}
 map_timeseries <- us_state %>%
@@ -430,8 +367,10 @@ anim <- p + transition_time(year)
 a <- animate(anim, nframes = 200, fps = 10, width = 800, height = 500,
              renderer = gifski_renderer())
 ```
+
+
 ```{r}
-key_years <- c(2014, 2017, 2020, 2024)
+key_years <- c(2014, 2017, 2020, 2023)
 
 map_facet <- us_state %>%
   left_join(firearm_data %>% 
