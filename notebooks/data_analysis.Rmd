@@ -7,7 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-firearm_data_cleaned <- read_excel("../Data/processed/firmarm_data_cleaned.xlsx")
+firearm_data_cleaned <- read_excel("../Data/processed/firearm_data_cleaned.xlsx")
 ```
 
 ```{r}
