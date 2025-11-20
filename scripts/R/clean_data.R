@@ -138,36 +138,11 @@ law_strength_by_class <- state_year_grid %>%
   janitor::clean_names()
 
 
-## --------------------------------------------------------------------------------------------------
-# Create counts by law class
-law_counts_by_class <- state_year_grid %>%
-  left_join(
-    law_data2 %>% select(law_id, state, effective_date_year, law_class, effect, type_of_change),
-    by = "state",
-    relationship = "many-to-many"
-  ) %>%
-  filter(effective_date_year <= year | is.na(effective_date_year)) %>%
-  group_by(state, year, law_class) %>%
-  summarise(
-    class_count = n_distinct(law_id, na.rm = TRUE),
-    class_restrictive = sum(effect == "Restrictive" & type_of_change != "Repeal", na.rm = TRUE),
-    class_permissive = sum(effect == "Permissive" & type_of_change != "Repeal", na.rm = TRUE),
-    .groups = 'drop'
-  ) %>%
-  pivot_wider(
-    names_from = law_class,
-    values_from = c(class_count, class_restrictive, class_permissive),
-    values_fill = 0
-  ) %>%
-  janitor::clean_names()
-
 
 ## --------------------------------------------------------------------------------------------------
 # Combine all law strength measures
 law_strength_final <- law_strength_by_year %>%
-  left_join(law_strength_by_class, by = c("state", "year")) %>%
-  left_join(law_counts_by_class, by = c("state", "year"))
-
+  left_join(law_strength_by_class, by = c("state", "year"))
   
 ## --------------------------------------------------------------------------------------------------
 # Merge mortality data with law strength data
@@ -184,34 +159,58 @@ gun_data_final2 <- gun_data_final %>%
     year = as.integer(year)
   )
 
-# create a high_risk variable
-# high_risk by year percentile (75th)
-# if rate in top 25% of rate data, classify as high risk (1), low risk otherwise (0)
-gun_data_final3 <- gun_data_final2 %>%
-  group_by(year) %>%
-  mutate(
-    rate_p75 = quantile(rate, 0.75, na.rm = TRUE),
-    high_risk = if_else(rate >= rate_p75, 1L, 0L)
-  ) %>%
-  ungroup() %>%
-  select(-rate_p75)
 
 # year-over-year changes by state 
 # changes in rate and change in law strength by time 
 
-gun_data_final4 <- gun_data_final3 %>%
+gun_data_final3 <- gun_data_final2 %>%
   arrange(state, year) %>%
   group_by(state) %>%
   mutate(
     rate_change = rate - lag(rate),
     law_strength_change = law_strength_score - lag(law_strength_score)
   ) %>%
-  ungroup() %>%
-  mutate(
-    restrictive_ratio = round(restrictive_laws / total_law_changes, digits = 2),
-    permissive_ratio = round(permissive_laws / total_law_changes, digits = 2)
-  )
+  ungroup()
 
 # Save the cleaned dataset
 
 write_csv(gun_data_final4, "firearm_data_cleaned.csv")
+
+
+
+# create a high_risk variable
+# high_risk by year percentile (75th)
+# if rate in top 25% of rate data, classify as high risk (1), low risk otherwise (0)
+#gun_data_final4 <- gun_data_final3 %>%
+#  group_by(year) %>%
+#  mutate(
+#    rate_p75 = quantile(rate, 0.75, na.rm = TRUE),
+#    high_risk = if_else(rate >= rate_p75, 1L, 0L)
+#  ) %>%
+#  ungroup() %>%
+#  select(-rate_p75)
+
+
+## --------------------------------------------------------------------------------------------------
+# Create counts by law class
+#law_counts_by_class <- state_year_grid %>%
+#  left_join(
+#    law_data2 %>% select(law_id, state, effective_date_year, law_class, effect, type_of_change),
+#    by = "state",
+#    relationship = "many-to-many"
+#  ) %>%
+#  filter(effective_date_year <= year | is.na(effective_date_year)) %>%
+#  group_by(state, year, law_class) %>%
+#  summarise(
+#    class_count = n_distinct(law_id, na.rm = TRUE),
+#    class_restrictive = sum(effect == "Restrictive" & type_of_change != "Repeal", na.rm = TRUE),
+#    class_permissive = sum(effect == "Permissive" & type_of_change != "Repeal", na.rm = TRUE),
+#    .groups = 'drop'
+#  ) %>%
+#  pivot_wider(
+#    names_from = law_class,
+#    values_from = c(class_count, class_restrictive, class_permissive),
+#    values_fill = 0
+#  ) %>%
+# janitor::clean_names()
+
