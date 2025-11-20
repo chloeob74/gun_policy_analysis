@@ -10,16 +10,56 @@ A reproducible pipeline to combine CDC mortality data with the **RAND State Fire
 
 ## Repository Structure
 
+```
+.
+├── Data/
+│   ├── raw/                    # Raw data files (staged by fetch scripts)
+│   ├── interim/                # Intermediate processing files
+│   └── processed/              # Final cleaned datasets
+│       └── firearm_data_cleaned_new.csv
+├── scripts/
+│   ├── R/                      # R implementation
+│   │   ├── 00_fetch.R
+│   │   └── 01_clean_merge.R
+│   └── py/                     # Python implementation
+│       ├── 00_fetch.py
+│       └── 01_clean_merge.py
+├── notebooks/                  # Exploratory analysis
+├── reports/                    # Generated reports
+│   ├── figures/
+│   └── tables/
+├── app/                        # Shiny app components
+├── gun_laws_dashboard/         # Dashboard application
+├── Data Dictionary/            # Data documentation
+├── docs/                       # Project documentation
+├── Makefile                    # Build automation
+├── requirements.txt            # Python dependencies
+├── renv.lock                   # R dependency lock file
+└── README.md
+```
+
 ## Environment & Setup
-- R >= 4.5.1; packages: 'tidyverse', 'readxl', janitor', 'lubridate', 'datasets', 'readr'
-- Optional: 'renv' for dependency pinning
+- **R Version:** >= 4.5.1; 
+- **Packages:** `tidyverse`, `readxl`, `janitor`, `lubridate`, `datasets`, `readr`, `optparse`, `fs`
+- **Optional:** 'renv' for dependency pinning
 
 ```bash
 # Install make (Windows: choco/scoop; macOSl Xcode CLT; Linux: apt/yum)
 --make --version
 
-# (optional) Initialize renv
+# (optional) Initialize renv for R dependency management
 R -q -e "install.packages('renv'); renv::init()"
+```
+### Python Setup
+- **Python Version:** >= 3.8
+- **Packages:** `pandas`, `numpy`, `openpyxl`
+
+```bash
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Or with conda
+conda install pandas numpy openpyxl
 ```
 
 ## Makefile Workflow
