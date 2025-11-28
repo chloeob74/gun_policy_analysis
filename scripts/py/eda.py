@@ -8,7 +8,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 
 # %%
-df = pd.read_excel("../../Data/processed/firmarm_data_cleaned.xlsx")
+df = pd.read_excel("../../Data/processed/firearm_data_cleaned.xlsx")
 
 df.head()
 
