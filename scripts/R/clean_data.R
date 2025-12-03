@@ -33,7 +33,9 @@ law_data <- law_data %>%
 
 ## --------------------------------------------------------------------------------------------------
 # Index subset of certain columns of law data
-law_data2 <- law_data[, c("law_id", "state", "effective_date_year", "law_class_num", "law_class", "law_class_subtype", "effect", "type_of_change")]
+law_data2 <- law_data[, c("law_id", "state", "effective_date_year", 
+                          "law_class_num", "law_class", "law_class_subtype", 
+                          "effect", "type_of_change")]
 
 
 ## --------------------------------------------------------------------------------------------------
