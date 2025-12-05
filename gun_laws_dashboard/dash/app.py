@@ -18,6 +18,16 @@ from dash import dcc
 from dash import html
 from dash.dependencies import Input, Output, State
 
+
+# %%
+# Load markdown and css files
+#
+external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+with open("intro.md", 'r') as file:
+        md_intro = file.read()
+with open("datasources.md", 'r') as file:
+        md_data_sources = file.read()
+
 #%%
 # Load Data
 datafile = "firearm_data_cleaned.csv"
@@ -28,34 +38,50 @@ while not filepath.is_file() and parents < 4:
     filepath = Path("".join(["../"] * parents) + f"/{datadir}/{datafile}")
     parents += 1
 df = pd.read_csv(filepath)
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-
-# %%
-# Animated Choropleth Map
-fig_state_rate = px.choropleth(df,
-                    locations='state',
-                    locationmode='USA-states',
-                    color='rate',
-                    color_continuous_scale='Purples',
-                    range_color=[0,40],
-                    animation_frame='year',
-                    scope="usa",
-                    labels={'rate':'Death per\n100,000'},
-                    title='U.S. Firearm Death Rate by State'
-                   )
+df_raw = df.copy()
 
 
 # %%
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+# Choloropleth Maps
 
-#%%
-@app.callback(
-    Output('data-container', 'figure'),
-    Input('data-button', 'n_clicks')
+# # Aggregate for multiple rows per state-year
+# law_map = (
+#     df_raw.copy().groupby(["year", "state"], as_index=False)["law_strength_score"]
+#        .mean()
+# )
+# law_map["law_strength_score"] = law_map["law_strength_score"].round(2)
+
+fig_map_lawstrength = fig = px.choropleth(
+    df,
+    locations="state", 
+    locationmode="USA-states",
+    color="law_strength_score",
+    animation_frame="year",
+    scope="usa",
+    color_continuous_scale="Viridis",
+    range_color=(0, 70),
+    labels={"law_strength_score": "Gun Law Strength Score"},
+    title="Gun Law Strength by State Over Time (2014–2023)"
 )
-def load_data_for_tab(_):
 
-    return [dcc.Graph(figure=ff.create_table(df))]
+fig_map_deathrate = fig = px.choropleth(
+    df,
+    locations="state", 
+    locationmode="USA-states",
+    color="rate",
+    animation_frame="year",
+    scope="usa",
+    color_continuous_scale="Viridis",
+    range_color=(0, 35),
+    labels={"rate": "Gun Death Rate per 100,000"},
+    title="Gun Death Rate by State Over Time (2014–2023)"
+)
+
+
+# %%
+# Dash App Layout
+#
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 
 # Create each tab separately (to avoid heavy indentation in app.layout, and make rearranging easier)
@@ -63,6 +89,7 @@ def load_data_for_tab(_):
 tab_intro = dcc.Tab(
     label = 'Introduction',
     children = [
+<<<<<<< HEAD
         dcc.Markdown('''
             ## DS 6021 Machine Learning Project
             Barnes, Chloe;
@@ -94,34 +121,53 @@ tab_intro = dcc.Tab(
                 - `restrictive_ratio`, `permissive_ratio` = proportion of changes within year
                         
             ''')
+=======
+        dcc.Markdown(md_intro)
+>>>>>>> 1a53a41a0df3f49a219a3169df98787830ff4873
     ]
 ) # End of tab_intro
 
 
 tab_usmap = dcc.Tab(
-    label = 'Firearm Death Rate Map',
+    label = 'State Maps',
     children = [
-        dcc.Graph(id = 'usmap', figure = fig_state_rate)
+        dcc.Graph(id='usmap', figure=fig_map_lawstrength),
+        dcc.Graph(id='usmap', figure=fig_map_deathrate)
     ]
 ) # End of tab_usmap
 
 
+tab_holder1 = dcc.Tab(
+    label = 'Placeholder 1',
+    children = [
+        dcc.Markdown("What do we want here?")
+    ]
+) # End of tab_placeholder1
+
+tab_holder2 = dcc.Tab(
+    label = 'Placeholder 1',
+    children = [
+        dcc.Markdown("What do we want here?")
+    ]
+) # End of tab_placeholder2
+
 tab_data = dcc.Tab(
     label = 'Data Sources',
     children = [
-        html.Button('Load Data', id='data-button', n_clicks=0),
-        dcc.Graph(id='data-container')
+        dcc.Markdown(md_data_sources)
     ]
 ) # End of tab_data
 
 
 app.layout = html.Div([
     html.H1("U.S. Gun Law Effectiveness", style={'textAlign': 'center'}),
-    html.H2('A State-Level Firearm Policy Analysis'),
+    html.H2('A State-Level Firearm Policy Analysis', style={'textAlign': 'center'}),
     dcc.Tabs(
         [
             tab_intro,
+            tab_holder1,
             tab_usmap,
+            tab_holder2,
             tab_data
         ]
     )
