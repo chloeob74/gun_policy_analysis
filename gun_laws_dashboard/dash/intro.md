@@ -22,8 +22,7 @@ Threat, Tiandre
 - Annual roll-up:
     - `law_strength_score` (sum of scores per state-year)
     - counts: `restrictive_laws`, `permissive_laws`, `total_law_changes`
-    - per-class strength and counts (wide columns)
+    - per-class strength score (wide columns)
 - Outcome helpers
-    - `high_risk`: 1 if `rate >= 75th` percentile within year; else 0
     - `rate_change`, `law_strength_change` (year-over-year within state)
     - `restrictive_ratio`, `permissive_ratio` = proportion of changes within year
