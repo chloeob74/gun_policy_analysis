@@ -51,7 +51,7 @@ df_raw = df.copy()
 # )
 # law_map["law_strength_score"] = law_map["law_strength_score"].round(2)
 
-fig_map_lawstrength = fig = px.choropleth(
+fig_map_lawstrength = px.choropleth(
     df,
     locations="state", 
     locationmode="USA-states",
@@ -64,7 +64,7 @@ fig_map_lawstrength = fig = px.choropleth(
     title="Gun Law Strength by State Over Time (2014–2023)"
 )
 
-fig_map_deathrate = fig = px.choropleth(
+fig_map_deathrate = px.choropleth(
     df,
     locations="state", 
     locationmode="USA-states",
@@ -89,7 +89,6 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 tab_intro = dcc.Tab(
     label = 'Introduction',
     children = [
-<<<<<<< HEAD
         dcc.Markdown('''
             ## DS 6021 Machine Learning Project
             Barnes, Chloe;
@@ -120,10 +119,9 @@ tab_intro = dcc.Tab(
                 - `rate_change`, `law_strength_change` (year-over-year within state)
                 - `restrictive_ratio`, `permissive_ratio` = proportion of changes within year
                         
-            ''')
-=======
+            '''),
+
         dcc.Markdown(md_intro)
->>>>>>> 1a53a41a0df3f49a219a3169df98787830ff4873
     ]
 ) # End of tab_intro
 
@@ -131,8 +129,8 @@ tab_intro = dcc.Tab(
 tab_usmap = dcc.Tab(
     label = 'State Maps',
     children = [
-        dcc.Graph(id='usmap', figure=fig_map_lawstrength),
-        dcc.Graph(id='usmap', figure=fig_map_deathrate)
+        dcc.Graph(id='usmap_law', figure=fig_map_lawstrength),
+        dcc.Graph(id='usmap_rate', figure=fig_map_deathrate)
     ]
 ) # End of tab_usmap
 
@@ -145,7 +143,7 @@ tab_holder1 = dcc.Tab(
 ) # End of tab_placeholder1
 
 tab_holder2 = dcc.Tab(
-    label = 'Placeholder 1',
+    label = 'Placeholder 2',
     children = [
         dcc.Markdown("What do we want here?")
     ]
