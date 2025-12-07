@@ -58,10 +58,16 @@ fig_map_lawstrength = px.choropleth(
     color="law_strength_score",
     animation_frame="year",
     scope="usa",
-    color_continuous_scale="Viridis",
+    color_continuous_scale=px.colors.sequential.Viridis[::-1],
     range_color=(0, 70),
-    labels={"law_strength_score": "Gun Law Strength Score"},
-    title="Gun Law Strength by State Over Time (2014–2023)"
+    labels={"year": "Year", 
+            "law_strength_score": "Gun Law Strength Score"},
+    title="Gun Law Strength by State Over Time (2014–2023)",
+    hover_name="state_name",
+    hover_data={
+        "year": True,
+        'state': False,
+        'law_strength_score': True,}
 )
 
 fig_map_deathrate = px.choropleth(
@@ -71,10 +77,16 @@ fig_map_deathrate = px.choropleth(
     color="rate",
     animation_frame="year",
     scope="usa",
-    color_continuous_scale="Viridis",
+    color_continuous_scale=px.colors.sequential.Viridis[::-1],
     range_color=(0, 35),
-    labels={"rate": "Gun Death Rate per 100,000"},
-    title="Gun Death Rate by State Over Time (2014–2023)"
+    labels={'year': 'Year',
+            'rate': 'Gun Death Rate per 100,000'},
+    title="Gun Death Rate by State Over Time (2014–2023)",
+    hover_name="state_name",
+    hover_data={
+        "year": True,
+        'state': False,
+        'rate': True,}
 )
 
 
