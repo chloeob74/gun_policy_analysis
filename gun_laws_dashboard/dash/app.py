@@ -16,6 +16,7 @@ import plotly.graph_objs as go
 import dash
 from dash import dcc
 from dash import html
+from dash import dash_table
 from dash.dependencies import Input, Output, State
 
 
@@ -39,6 +40,9 @@ while not filepath.is_file() and parents < 4:
     parents += 1
 df = pd.read_csv(filepath)
 df_raw = df.copy()
+df_subset = df[['year', 'state', 'state_name', 'rate', 'deaths', 'law_strength_score',
+                'restrictive_laws', 'permissive_laws', 'total_law_changes', 'unique_law_classes',
+                'rate_change', 'law_strength_change', 'restrictive_ratio', 'permissive_ratio']]
 
 
 # %%
@@ -89,6 +93,18 @@ fig_map_deathrate = px.choropleth(
         'rate': True,}
 )
 
+def generate_table (df, max_rows=10):
+    return html.Table([
+        html.Thead(
+            html.Tr([html.Th(col) for col in df.columns])
+        ),
+        html.Tbody([
+            html.Tr([
+                html.Td(df.iloc[i][col]) for col in df.columns
+            ]) for i in range(min(len(df), max_rows))
+        ])
+    ])
+
 
 # %%
 # Dash App Layout
@@ -115,10 +131,32 @@ tab_usmap = dcc.Tab(
 ) # End of tab_usmap
 
 
-tab_holder1 = dcc.Tab(
-    label = 'Placeholder 1',
+tab_datatable = dcc.Tab(
+    label = 'Data Table',
     children = [
-        dcc.Markdown("What do we want here?")
+          dash_table.DataTable(
+              id='data_table',
+              columns=[{"name": i, "id": i} for i in df_subset.columns],
+              data=df_subset.to_dict('records'),
+
+              filter_action='native',
+              sort_action='native',
+              sort_mode='multi',
+              page_action='native',
+              page_current=0,
+              page_size=20,
+
+              fixed_rows={'headers': True},
+              style_table={'height': '500px', 
+                           'overflowY': 'auto', 
+                           'overflowX': 'auto'},
+
+              style_cell={'textAlign': 'left', 
+                          'padding': '5px', 
+                          'minWidth': '180px', 
+                          'width': '180px', 
+                          'maxWidth': '200px'},
+          )
     ]
 ) # End of tab_placeholder1
 
@@ -143,7 +181,7 @@ app.layout = html.Div([
     dcc.Tabs(
         [
             tab_intro,
-            tab_holder1,
+            tab_datatable,
             tab_usmap,
             tab_holder2,
             tab_data
