@@ -40,6 +40,10 @@ while not filepath.is_file() and parents < 4:
     parents += 1
 df = pd.read_csv(filepath)
 df_raw = df.copy()
+numeric_cols = df[['rate', 'deaths', 'law_strength_score', 'restrictive_laws', 
+                'permissive_laws', 'total_law_changes', 'unique_law_classes', 
+                'rate_change', 'law_strength_change', 'restrictive_ratio', 
+                'permissive_ratio']]
 df_subset = df[['year', 'state', 'state_name', 'rate', 'deaths', 'law_strength_score',
                 'restrictive_laws', 'permissive_laws', 'total_law_changes', 'unique_law_classes',
                 'rate_change', 'law_strength_change', 'restrictive_ratio', 'permissive_ratio']]
@@ -136,15 +140,19 @@ tab_datatable = dcc.Tab(
     children = [
           dash_table.DataTable(
               id='data_table',
-              columns=[{"name": i, "id": i} for i in df_subset.columns],
+              columns=[
+                    {
+                          "name": i, 
+                          "id": i,
+                          'type': 'numeric' if i in numeric_cols.columns else "text",
+                    } 
+                    for i in df_subset.columns
+                ],
               data=df_subset.to_dict('records'),
 
               filter_action='native',
               sort_action='native',
               sort_mode='multi',
-              page_action='native',
-              page_current=0,
-              page_size=20,
 
               fixed_rows={'headers': True},
               style_table={'height': '500px', 
