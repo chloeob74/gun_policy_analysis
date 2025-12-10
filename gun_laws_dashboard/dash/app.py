@@ -17,6 +17,7 @@ import dash
 from dash import dcc
 from dash import html
 from dash import dash_table
+from dash.dash_table.Format import Format, Scheme
 from dash.dependencies import Input, Output, State
 
 
@@ -42,7 +43,10 @@ df = pd.read_csv(filepath)
 df_raw = df.copy()
 df_subset = df[['year', 'state', 'state_name', 'rate', 'deaths', 'law_strength_score',
                 'restrictive_laws', 'permissive_laws', 'total_law_changes', 'unique_law_classes',
-                'rate_change', 'law_strength_change', 'restrictive_ratio', 'permissive_ratio']]
+                'rate_change', 'law_strength_change', 'restrictive_ratio', 'permissive_ratio']].copy()
+# for col in df_subset.columns: 
+#     if (pd.api.types.is_float_dtype(df_subset[col])):
+#         df_subset[col] = df_subset[col].round(3)
 
 
 # %%
@@ -131,12 +135,22 @@ tab_usmap = dcc.Tab(
 ) # End of tab_usmap
 
 
+# Apply formatting to float columns for DataTable
+column_specs = [] 
+for col in df_subset.columns: 
+    if (pd.api.types.is_float_dtype(df_subset[col])):
+        column_specs.append({"name": col, "id": col, 
+                "type": "numeric", "format": Format(precision=2, scheme=Scheme.fixed)})
+    else:
+        column_specs.append({"name": col, "id": col})
+
 tab_datatable = dcc.Tab(
+     
     label = 'Data Table',
     children = [
           dash_table.DataTable(
               id='data_table',
-              columns=[{"name": i, "id": i} for i in df_subset.columns],
+              columns=column_specs,
               data=df_subset.to_dict('records'),
 
               filter_action='native',
@@ -158,7 +172,7 @@ tab_datatable = dcc.Tab(
                           'maxWidth': '200px'},
           )
     ]
-) # End of tab_placeholder1
+) # End of tab_datatable
 
 tab_holder2 = dcc.Tab(
     label = 'Placeholder 2',
