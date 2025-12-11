@@ -8,12 +8,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.figure_factory as ff
 import plotly.graph_objs as go
-import plotly.tools as tls
 #import plotly.plotly as py
+import statsmodels.api as sm
 
 import dash
 from dash import dcc
@@ -32,8 +31,17 @@ with open("intro.md", 'r') as file:
 with open("datasources.md", 'r') as file:
         md_data_sources = file.read()
 
+with open("research_q1.md", 'r') as file:           # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< START
+        research_q1 = file.read()           
+with open('research_q1_bottom.md', 'r') as file:
+        research_q1_bottom = file.read()            # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< STOP
+
 #%%
 # Load Data
+df = pd.read_csv('firearm_data_cleaned.csv')
+df_raw = df.copy()
+"""
+
 datafile = "firearm_data_cleaned.csv"
 datadir = "Data/processed"
 parents = 0
@@ -43,6 +51,9 @@ while not filepath.is_file() and parents < 4:
     parents += 1
 df = pd.read_csv(filepath)
 df_raw = df.copy()
+
+"""
+
 numeric_cols = df[['rate', 'deaths', 'law_strength_score', 'restrictive_laws', 
                 'permissive_laws', 'total_law_changes', 'unique_law_classes', 
                 'rate_change', 'law_strength_change', 'restrictive_ratio', 
@@ -50,20 +61,9 @@ numeric_cols = df[['rate', 'deaths', 'law_strength_score', 'restrictive_laws',
 df_subset = df[['year', 'state', 'state_name', 'rate', 'deaths', 'law_strength_score',
                 'restrictive_laws', 'permissive_laws', 'total_law_changes', 'unique_law_classes',
                 'rate_change', 'law_strength_change', 'restrictive_ratio', 'permissive_ratio']].copy()
-
-# 
-# Some useful subsets of the data
-#
-
-# Some analysis has problems with missing years, so exclude DC which has only 2022, 2023
-noDC = df[df['state'] != 'District of Columbia']
-
-# Identify law strength features (our primary predictors)
-law_features = [col for col in df.columns if col.startswith('strength_')]
-permissive_classes = [col for col in df.columns if col.startswith('class_permissive_')]
-restrictive_classes = [col for col in df.columns if col.startswith('class_restrictive_')]
-feature_classes = permissive_classes + restrictive_classes
-
+# for col in df_subset.columns: 
+#     if (pd.api.types.is_float_dtype(df_subset[col])):
+#         df_subset[col] = df_subset[col].round(3)
 
 
 # %%
@@ -114,61 +114,17 @@ fig_map_deathrate = px.choropleth(
         'rate': True,}
 )
 
-def graph_strength_correlations(df):
-
-     # Calculate correlations
-    recent_data = df[df['year'] == df['year'].max()][['state_name', 'rate'] + law_features].dropna()
-    correlations = recent_data[law_features + ['rate']].corr()['rate'].drop('rate')
-    cor_df = pd.DataFrame({
-        'Law Type': [f.replace('strength_', '').replace('_', ' ').title() for f in correlations.index],
-        'Correlation': correlations.values
-    }).sort_values('Correlation', key=abs, ascending=False)
-
-    cor_df['pos'] = cor_df['Correlation'] > 0
-    fig1a = px.bar(cor_df, x='Correlation', y='Law Type', orientation='h',
-              color='pos',
-              category_orders={"Law Type": cor_df["Law Type"].to_list()},
-            title=f'Association of Each Law Strength with Firearm Death Rate',
-              hover_name="Law Type", hover_data={'pos':False, 'Law Type':False, 'Correlation': True}
-              )
-    fig1a.update_yaxes(type='category')
-    fig1a.update_yaxes({'gridcolor': 'white'})        
-    fig1a.update_xaxes({'gridcolor': None, 'zerolinecolor': 'black', 'linecolor': None, 'zerolinewidth': 2})    
-    fig1a.update_layout(xaxis_title='Correlation with Death Rate', showlegend=False, yaxis={'dtick': 1})
-    
-    return fig1a
-
-fig_strength_correlations = graph_strength_correlations(df)
-
-
-def graph_feature_correlations(df):
-     
-    # Calculate correlations with death rate
-    # Exclude classes with zero variance since they have no predictive power, and therefore cause nans in the correlation matrix
-    non_zero_v_feature_classes = df[feature_classes].std()[df[feature_classes].std() != 0].index.to_list()
-
-    # Calculate correlations
-    correlations = df[non_zero_v_feature_classes + ['rate']].corr()['rate'].drop('rate')
-    cor2_df = pd.DataFrame({
-        'Law Type': [f.replace('class_', '').replace('_', ' ').title() for f in correlations.index],
-        'Correlation': correlations.values
-    }).sort_values(by='Correlation', key=abs, ascending=False)
-
-    cor2_df['pos'] = cor2_df['Correlation'] > 0
-    fig2a = px.bar(cor2_df, x='Correlation', y='Law Type', orientation='h',
-            color='pos',
-            category_orders={"Law Type": cor2_df["Law Type"].to_list()},
-            title=f'Association of Each Feature with Firearm Death Rate',
-            hover_name="Law Type", hover_data={'pos':False, 'Law Type':False, 'Correlation': True}
-            )
-    fig2a.update_yaxes(type='category')            
-    fig2a.update_yaxes({'gridcolor': 'white'})        
-    fig2a.update_xaxes({'gridcolor': None, 'zerolinecolor': 'black', 'linecolor': None, 'zerolinewidth': 2})    
-    fig2a.update_layout(xaxis_title='Correlation with Death Rate', yaxis_title='Feature', showlegend=False, yaxis={'dtick': 1})
-    
-    return fig2a
-
-fig_feature_correlations = graph_feature_correlations(df)
+def generate_table (df, max_rows=10):
+    return html.Table([
+        html.Thead(
+            html.Tr([html.Th(col) for col in df.columns])
+        ),
+        html.Tbody([
+            html.Tr([
+                html.Td(df.iloc[i][col]) for col in df.columns
+            ]) for i in range(min(len(df), max_rows))
+        ])
+    ])
 
 
 # %%
@@ -232,22 +188,104 @@ tab_datatable = dcc.Tab(
     ]
 ) # End of tab_datatable
 
-tab_holder2 = dcc.Tab(
-    label = 'Placeholder 2',
+
+                                                            ### <<<<<<<<<<<<<<<<<<<<<<<<< START
+
+labels1 = ['Basic Multi-Linear Regression', 'Ridge Regression', 'PCA']
+labels2 = ['Dataset 1', 'Dataset 2']
+
+tab_holder2 = dcc.Tab(                          
+    label = 'Predicting Gun Violence',
     children = [
-        dcc.Markdown("What do we want here?")
+    
+        dcc.Markdown(research_q1),
+        
+        html.Div([
+
+            html.Div([
+                html.H2('Model'),
+                dcc.Dropdown(id='Model_drop',
+                     options=[{'label': i, 'value': i} for i in labels1],
+                     value='Basic Multi-Linear')
+            ], style={'width':'48%', 'float':'left'}),
+            
+            html.Div([
+                html.H2('Dataset'),
+                dcc.Dropdown(id='Dataset_drop',
+                    options=[{'label': i, 'value': i} for i in labels2],
+                    value='Dataset1')
+                    ], style = {'width':'48%', 'float':'right'})
+        
+        ], style = {'width':'100%', 'display':'inline-block'}), 
+
+
+        html.Div([
+            html.Div([
+                dcc.Graph(id='model_graph'),
+            ], style={'width':'60%', 'float':'left'}),
+
+            html.Div([
+                dcc.Graph(id='model_table')
+            ], style={'width':'40%', 'float':'right'}),
+        ], style = {'width':'100%', 'display':'inline-block'}),
+        
+
+        dcc.Markdown(research_q1_bottom)
+    
     ]
-) # End of tab_placeholder2
+) 
 
+@app.callback([Output(component_id='model_graph', component_property='figure'),
+               Output(component_id='model_table', component_property='figure')],
+              [Input(component_id='Model_drop', component_property='value',),
+               Input(component_id='Dataset_drop', component_property='value')])
 
-tab_effectiveness = dcc.Tab(
-    label = 'Effectiveness Metrics',
-    children = [
-        dcc.Graph(id='strength_correlations', figure=fig_strength_correlations),
-        dcc.Graph(id='feature_correlations', figure=fig_feature_correlations)
-    ]
-) # End of tab_effectiveness
+def show_the_graph_and_table(mod_choice, data_choice):
 
+    data = pd.DataFrame(index=['model_performance'])
+    adj_r2 = 0
+    rmse = 0
+
+    if(data_choice == 'Dataset 1'):
+        if mod_choice == 'PCA':
+            data = pd.read_csv('pca_output_data1.csv')
+            adj_r2 = '-1.481'
+            rmse = '4.652'
+        elif mod_choice == 'Ridge Regression':
+            data = pd.read_csv('ridge_output_data1.csv')
+            adj_r2 = '0.938'
+            rmse = '1.280'
+        else: # mod_choice = Basic Multi-Linear Regression
+            data = pd.read_csv('basic_output_data1.csv')    
+            adj_r2 = '0.946'
+            rmse = '1.277'
+    
+    else: # data_choice = 'Dataset 2'
+        if mod_choice == 'PCA':
+            data = pd.read_csv('pca_output_data2.csv')
+            adj_r2 = '-1.689'
+            rmse = '4.280'
+        elif mod_choice == 'Ridge Regression':
+            data = pd.read_csv('ridge_output_data2.csv')
+            adj_r2 = '0.893'
+            rmse = '1.689'
+        else: # mod_choice = Basic Multi-Linear Regression
+            data = pd.read_csv('basic_output_data2.csv') 
+            adj_r2 = '0.904'
+            rmse = '1.597'
+
+    df = pd.DataFrame({'Adjusted r^2': [adj_r2], 'RMSE': [rmse]})
+    #df_1 = df.T.reset_index()
+    #df_1=df_1.rename({'index': 'RMSE', 1:'Adjusted r^2'}, axis=1)
+
+    out_graph = px.scatter(data, x='predicted', y='actual',
+                           trendline='ols')
+    out_table = ff.create_table(df)
+
+    return [out_graph, out_table]
+
+                                                    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< STOP
+# End of tab_placeholder2
 
 tab_data = dcc.Tab(
     label = 'Data Sources',
@@ -266,7 +304,6 @@ app.layout = html.Div([
             tab_datatable,
             tab_usmap,
             tab_holder2,
-            tab_effectiveness,
             tab_data
         ]
     )
