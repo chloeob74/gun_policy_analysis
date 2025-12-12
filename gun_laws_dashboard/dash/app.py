@@ -241,7 +241,7 @@ tab_datatable = dcc.Tab(
 labels1 = ['Basic Multi-Linear Regression', 'Ridge Regression', 'PCA']
 labels2 = ['Dataset 1', 'Dataset 2']
 
-tab_holder2 = dcc.Tab(                          
+tab_predictive = dcc.Tab(                          
     label = 'Predicting Gun Violence',
     children = [
     
@@ -280,7 +280,7 @@ tab_holder2 = dcc.Tab(
         dcc.Markdown(research_q1_bottom)
     
     ]
-) 
+) # End of tab_predictive
 
 @app.callback([Output(component_id='model_graph', component_property='figure'),
                Output(component_id='model_table', component_property='figure')],
@@ -332,7 +332,7 @@ def show_the_graph_and_table(mod_choice, data_choice):
     return [out_graph, out_table]
 
                                                     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< STOP
-# End of tab_placeholder2
+# End of tab_predictive
 
 
 tab_effectiveness = dcc.Tab(
@@ -342,6 +342,17 @@ tab_effectiveness = dcc.Tab(
         dcc.Graph(id='feature_correlations', figure=fig_feature_correlations)
         ]
 ) # End of tab_effectiveness
+
+style_center_image={'width':'80%', 'margin-left':'auto', 'margin-right':'auto', 'display':'block'}
+tab_clusters = dcc.Tab(
+    label = 'State Clusters',
+    children = [
+        html.Img(src=app.get_asset_url('kmeans_elbow.png'), style=style_center_image),
+        html.Img(src=app.get_asset_url('ward_dendrogram.png'), style=style_center_image),
+        html.Img(src=app.get_asset_url('pca_clusters.png'), style=style_center_image)
+        ]
+) # End of tab_clusters
+
 
 tab_data = dcc.Tab(
     label = 'Data Sources',
@@ -353,14 +364,15 @@ tab_data = dcc.Tab(
 
 app.layout = html.Div([
     html.H1("U.S. Gun Law Effectiveness", style={'textAlign': 'center'}),
-    html.H2('A State-Level Firearm Policy Analysis', style={'textAlign': 'center'}),
+    html.H3('A State-Level Firearm Policy Analysis', style={'textAlign': 'center'}),
     dcc.Tabs(
         [
             tab_intro,
             tab_datatable,
             tab_usmap,
-            tab_holder2,
+            tab_predictive,
             tab_effectiveness,
+            tab_clusters,
             tab_data
         ]
     )
