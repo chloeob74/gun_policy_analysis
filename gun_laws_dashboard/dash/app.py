@@ -38,10 +38,6 @@ with open('research_q1_bottom.md', 'r') as file:
 
 #%%
 # Load Data
-df = pd.read_csv('firearm_data_cleaned.csv')
-df_raw = df.copy()
-"""
-
 datafile = "firearm_data_cleaned.csv"
 datadir = "Data/processed"
 parents = 0
@@ -52,8 +48,6 @@ while not filepath.is_file() and parents < 4:
 df = pd.read_csv(filepath)
 df_raw = df.copy()
 
-"""
-
 numeric_cols = df[['rate', 'deaths', 'law_strength_score', 'restrictive_laws', 
                 'permissive_laws', 'total_law_changes', 'unique_law_classes', 
                 'rate_change', 'law_strength_change', 'restrictive_ratio', 
@@ -61,10 +55,19 @@ numeric_cols = df[['rate', 'deaths', 'law_strength_score', 'restrictive_laws',
 df_subset = df[['year', 'state', 'state_name', 'rate', 'deaths', 'law_strength_score',
                 'restrictive_laws', 'permissive_laws', 'total_law_changes', 'unique_law_classes',
                 'rate_change', 'law_strength_change', 'restrictive_ratio', 'permissive_ratio']].copy()
-# for col in df_subset.columns: 
-#     if (pd.api.types.is_float_dtype(df_subset[col])):
-#         df_subset[col] = df_subset[col].round(3)
 
+# 
+# Some useful subsets of the data
+#
+
+# Some analysis has problems with missing years, so exclude DC which has only 2022, 2023
+noDC = df[df['state'] != 'District of Columbia']
+
+# Identify law strength features (our primary predictors)
+law_features = [col for col in df.columns if col.startswith('strength_')]
+permissive_classes = [col for col in df.columns if col.startswith('class_permissive_')]
+restrictive_classes = [col for col in df.columns if col.startswith('class_restrictive_')]
+feature_classes = permissive_classes + restrictive_classes
 
 # %%
 # Choloropleth Maps
@@ -114,17 +117,61 @@ fig_map_deathrate = px.choropleth(
         'rate': True,}
 )
 
-def generate_table (df, max_rows=10):
-    return html.Table([
-        html.Thead(
-            html.Tr([html.Th(col) for col in df.columns])
-        ),
-        html.Tbody([
-            html.Tr([
-                html.Td(df.iloc[i][col]) for col in df.columns
-            ]) for i in range(min(len(df), max_rows))
-        ])
-    ])
+def graph_strength_correlations(df):
+
+     # Calculate correlations
+    recent_data = df[df['year'] == df['year'].max()][['state_name', 'rate'] + law_features].dropna()
+    correlations = recent_data[law_features + ['rate']].corr()['rate'].drop('rate')
+    cor_df = pd.DataFrame({
+        'Law Type': [f.replace('strength_', '').replace('_', ' ').title() for f in correlations.index],
+        'Correlation': correlations.values
+    }).sort_values('Correlation', key=abs, ascending=False)
+
+    cor_df['pos'] = cor_df['Correlation'] > 0
+    fig1a = px.bar(cor_df, x='Correlation', y='Law Type', orientation='h',
+              color='pos',
+              category_orders={"Law Type": cor_df["Law Type"].to_list()},
+            title=f'Association of Each Law Strength with Firearm Death Rate',
+              hover_name="Law Type", hover_data={'pos':False, 'Law Type':False, 'Correlation': True}
+              )
+    fig1a.update_yaxes(type='category')
+    fig1a.update_yaxes({'gridcolor': 'white'})        
+    fig1a.update_xaxes({'gridcolor': None, 'zerolinecolor': 'black', 'linecolor': None, 'zerolinewidth': 2})    
+    fig1a.update_layout(xaxis_title='Correlation with Death Rate', showlegend=False, yaxis={'dtick': 1})
+    
+    return fig1a
+
+fig_strength_correlations = graph_strength_correlations(df)
+
+
+def graph_feature_correlations(df):
+     
+    # Calculate correlations with death rate
+    # Exclude classes with zero variance since they have no predictive power, and therefore cause nans in the correlation matrix
+    non_zero_v_feature_classes = df[feature_classes].std()[df[feature_classes].std() != 0].index.to_list()
+
+    # Calculate correlations
+    correlations = df[non_zero_v_feature_classes + ['rate']].corr()['rate'].drop('rate')
+    cor2_df = pd.DataFrame({
+        'Law Type': [f.replace('class_', '').replace('_', ' ').title() for f in correlations.index],
+        'Correlation': correlations.values
+    }).sort_values(by='Correlation', key=abs, ascending=False)
+
+    cor2_df['pos'] = cor2_df['Correlation'] > 0
+    fig2a = px.bar(cor2_df, x='Correlation', y='Law Type', orientation='h',
+            color='pos',
+            category_orders={"Law Type": cor2_df["Law Type"].to_list()},
+            title=f'Association of Each Feature with Firearm Death Rate',
+            hover_name="Law Type", hover_data={'pos':False, 'Law Type':False, 'Correlation': True}
+            )
+    fig2a.update_yaxes(type='category')            
+    fig2a.update_yaxes({'gridcolor': 'white'})        
+    fig2a.update_xaxes({'gridcolor': None, 'zerolinecolor': 'black', 'linecolor': None, 'zerolinewidth': 2})    
+    fig2a.update_layout(xaxis_title='Correlation with Death Rate', yaxis_title='Feature', showlegend=False, yaxis={'dtick': 1})
+    
+    return fig2a
+
+fig_feature_correlations = graph_feature_correlations(df)
 
 
 # %%
@@ -287,6 +334,15 @@ def show_the_graph_and_table(mod_choice, data_choice):
                                                     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< STOP
 # End of tab_placeholder2
 
+
+tab_effectiveness = dcc.Tab(
+    label = 'Effectiveness Metrics',
+    children = [
+        dcc.Graph(id='strength_correlations', figure=fig_strength_correlations),
+        dcc.Graph(id='feature_correlations', figure=fig_feature_correlations)
+        ]
+) # End of tab_effectiveness
+
 tab_data = dcc.Tab(
     label = 'Data Sources',
     children = [
@@ -304,6 +360,7 @@ app.layout = html.Div([
             tab_datatable,
             tab_usmap,
             tab_holder2,
+            tab_effectiveness,
             tab_data
         ]
     )
