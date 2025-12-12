@@ -3,14 +3,15 @@ Barnes, Chloe;
 Dallas, Ryan;
 Luedtke, Terry;
 Robinson, Shiraz;
-Threat, Tiandre
+Threat, Tiandra
 
 ## Data Sources
 1. [CDC mortality](https://www.cdc.gov/nchs/state-stats/deaths/firearms.html):
-    - *Description:*
+    - *Description:* Gun caused mortality rates in the US.
     - *Key fields:* `STATE`, `YEAR`, `RATE (per 100K)`, `DEATHS`
     - *File:* `data-table.csv`
 2. [RAND State Firearm Database](https://www.rand.org/pubs/tools/TLA243-2-v3.html)
+    - *Description:* Gun laws and policies per state including yearly changes. Policies are identified by type and whether they are restrictive or permissive.
     - *Key fields:* `Law ID`, `State`, `Law Class`, `Effect (Restrictive/Permissive)`, `Type of Change(Implement/Modify/Repeal)`, `Effective Date Year`
     - *File:* `TL-A243-2-v3 State Firearm Law Database 5.0.xlsx` (sheet: `Database`)
 
